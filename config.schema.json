@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "ShellyBlu",
   "pluginType": "platform",
   "singular": true,
   "schema": {
@@ -10,6 +10,27 @@
         "type": "string",
         "required": true,
         "default": "Example Dynamic Platform"
+      },
+      "email": {
+        "title": "Shelly Cloud Email",
+        "type": "string",
+        "required": true,
+        "default": ""
+      },
+      "password": {
+        "title": "Shelly Cloud Password",
+        "type": "string",
+        "required": true,
+        "default": ""
+      },
+      "deviceIds": {
+        "title": "Shelly BLU Device IDs",
+        "type": "array",
+        "items": {
+          "title": "Device ID",
+          "type": "string"
+        },
+        "default": []
       }
     }
   }

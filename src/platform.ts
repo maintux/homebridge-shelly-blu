@@ -1,19 +1,32 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { ExamplePlatformAccessory } from './platformAccessory';
+import { SBDWAccessory } from './accessories/SBDWAccessory';
+import ShellyCloudApi from './oauth';
+import { client as WebSocketClient } from 'websocket';
+import {
+  is_shelly_generic_response,
+  is_shelly_statusonchange,
+} from './shellyTypes';
+import BaseAccessory from './accessories/BaseAccessory';
+
 
 /**
  * HomebridgePlatform
  * This class is the main constructor for your plugin, this is where you should
  * parse the user config and discover/register accessories with Homebridge.
  */
-export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
+export class ShellyBluPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
   // this is used to track restored cached accessories
-  public readonly accessories: PlatformAccessory[] = [];
+  public readonly accessories: BaseAccessory[] = [];
+
+  private _shellyApi: ShellyCloudApi;
+
+  private _wsClient;
 
   constructor(
     public readonly log: Logger,
@@ -22,14 +35,17 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
   ) {
     this.log.debug('Finished initializing platform:', this.config.name);
 
-    // When this event is fired it means Homebridge has restored all cached accessories from disk.
-    // Dynamic Platform plugins should only register new accessories after this event was fired,
-    // in order to ensure they weren't added to homebridge already. This event can also be used
-    // to start discovery of new accessories.
+    this._shellyApi = new ShellyCloudApi(log, config, api);
+    this._wsClient = new WebSocketClient();
+
     this.api.on('didFinishLaunching', () => {
       log.debug('Executed didFinishLaunching callback');
-      // run the method to discover / register your devices as accessories
-      this.discoverDevices();
+
+      this.discoverDevices().then(async (devices: Array<any>) => {
+        this.registerDevices(devices);
+        await this.handleDevicesStateChanges(devices);
+      });
+
     });
   }
 
@@ -37,80 +53,121 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
    * This function is invoked when homebridge restores cached accessories from disk at startup.
    * It should be used to setup event handlers for characteristics and update respective values.
    */
-  configureAccessory(accessory: PlatformAccessory) {
-    this.log.info('Loading accessory from cache:', accessory.displayName);
+  configureAccessory(platformAccessory: PlatformAccessory) {
+    this.log.info('Loading accessory from cache:', platformAccessory.displayName);
 
     // add the restored accessory to the accessories cache so we can track if it has already been registered
-    this.accessories.push(accessory);
+    if (platformAccessory.context.device.code.split('-')[0] === 'SBDW') {
+      // create a new accessory
+      const accessory = new SBDWAccessory(this, {
+        uniqueId: platformAccessory.context.device.uniqueId,
+        code: platformAccessory.context.device.code,
+      });
+      this.accessories.push(accessory);
+    }
   }
 
-  /**
-   * This is an example method showing how to register discovered accessories.
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
-   */
-  discoverDevices() {
+  async discoverDevices(): Promise<Array<any>> {
+    // for(const a of this.accessories) {
+    //   this.log.info('%j', a.platformAccessory.UUID);
+    //   this.log.info('Removing existing accessory from cache:', a.platformAccessory.displayName);
+    //   this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [a.platformAccessory]);
+    // }
 
-    // EXAMPLE ONLY
-    // A real plugin you would discover accessories from the local network, cloud services
-    // or a user-defined array in the platform config.
-    const exampleDevices = [
-      {
-        exampleUniqueId: 'ABCD',
-        exampleDisplayName: 'Bedroom',
-      },
-      {
-        exampleUniqueId: 'EFGH',
-        exampleDisplayName: 'Kitchen',
-      },
-    ];
+    const payload = await this._shellyApi.call('/device/all_status');
+    const devices: Array<any> = [];
+    if (is_shelly_generic_response(payload) && payload.isok === true) {
+      for(const deviceId in (payload.data as any).devices_status) {
+        if((payload.data as any).devices_status[deviceId]._dev_info?.gen === 'GBLE') {
+          devices.push({
+            uniqueId: deviceId,
+            code: (payload.data as any).devices_status[deviceId]._dev_info.code,
+            payload: (payload.data as any).devices_status[deviceId],
+          });
+        }
+      }
+    }
 
+    return devices;
+  }
+
+  async handleDevicesStateChanges(devices) {
+    if (devices.length > 0) {
+      const wsClientEndpoint = await this._shellyApi.getWSEndpoint();
+      this.log.debug(wsClientEndpoint);
+      this._wsClient.on('connectFailed', (error) => {
+        this.log.debug('Connect Error: ' + error.toString());
+        this.handleDevicesStateChanges(devices);
+      });
+
+      this._wsClient.on('connect', (connection) => {
+        this.log.debug('Connection established!');
+
+        connection.on('error', (error) => {
+          this.log.debug('Connection error: ' + error.toString());
+        });
+
+        connection.on('close', () => {
+          this.log.debug('Connection closed!');
+        });
+
+        connection.on('message', (message) => {
+          const payload = JSON.parse(message.utf8Data);
+          if(is_shelly_statusonchange(payload)) {
+            this.log.debug('%j', payload);
+            const uuid = this.api.hap.uuid.generate(payload.device.id as any);
+            const existingAccessory = this.accessories.find(accessory => accessory.platformAccessory.UUID === uuid);
+            if(existingAccessory) {
+              if (payload.device.code.split('-')[0] === 'SBDW') {
+                existingAccessory.updateStatus({
+                  uniqueId: payload.device.id,
+                  code: payload.device.code,
+                  payload: payload.status,
+                });
+              }
+            }
+          }
+        });
+      });
+
+      this._wsClient.connect(wsClientEndpoint);
+    }
+  }
+
+  registerDevices(devices) {
     // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
+    const accessories: Array<PlatformAccessory> = [];
+    for (const device of devices) {
 
       // generate a unique id for the accessory this should be generated from
       // something globally unique, but constant, for example, the device serial
       // number or MAC address
-      const uuid = this.api.hap.uuid.generate(device.exampleUniqueId);
+      const uuid = this.api.hap.uuid.generate(device.uniqueId);
 
       // see if an accessory with the same uuid has already been registered and restored from
       // the cached devices we stored in the `configureAccessory` method above
-      const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+      const existingAccessory = this.accessories.find(accessory => accessory.platformAccessory.UUID === uuid);
 
-      if (existingAccessory) {
-        // the accessory already exists
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        // existingAccessory.context.device = device;
-        // this.api.updatePlatformAccessories([existingAccessory]);
-
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, existingAccessory);
-
-        // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
-        // remove platform accessories when no longer present
-        // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        // this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
-      } else {
-        // the accessory does not yet exist, so we need to create it
-        this.log.info('Adding new accessory:', device.exampleDisplayName);
+      if (device.code.split('-')[0] === 'SBDW') {
 
         // create a new accessory
-        const accessory = new this.api.platformAccessory(device.exampleDisplayName, uuid);
+        const accessory = existingAccessory ?? new SBDWAccessory(this, device);
 
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.device = device;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, accessory);
-
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+        if(!existingAccessory) {
+          // the accessory does not yet exist, so we need to create it
+          this.log.info('Adding new accessory:', device.code);
+          accessories.push(accessory.platformAccessory);
+        } else {
+          this.log.info('Restore accessory from cache:', device.code);
+          accessory.updateStatus(device);
+        }
       }
+
+    }
+
+    if(accessories.length > 0) {
+      // link the accessory to your platform
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories);
     }
   }
 }
