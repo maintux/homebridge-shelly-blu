@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
 
 Copyright 2022 Allterco EOOD
@@ -24,7 +26,7 @@ export interface shelly_auth_code_token_t {
 export function is_shelly_auth_code_token(t:any) :t is shelly_auth_code_token_t {
   return (
     t && typeof(t)==='object'
-		&& typeof(t.sub)==='string' && t.sub!='pwd'
+		&& typeof(t.sub)==='string' && t.sub!=='pwd'
 		&& typeof(t.user_id)==='string'
 		&& typeof(t.user_api_url)==='string'
   );
@@ -41,7 +43,7 @@ export interface shelly_access_token_t {
 export function is_shelly_access_token_t(t:any) :t is shelly_access_token_t {
   return (
     t && typeof(t)==='object'
-		&& typeof(t.sub)==='string' && t.sub=='pwd'
+		&& typeof(t.sub)==='string' && t.sub==='pwd'
 		&& typeof(t.user_id)==='string'
 		&& typeof(t.user_api_url)==='string'
 		&& typeof(t.exp)==='number'
@@ -119,7 +121,7 @@ export function is_shelly_status_dev(s:any):s is shelly_status_dev_t{
     s && typeof(s)==='object' //don't use is_shelly_status_miniamal as some virtual devs don't have serial
 		&& is_shelly_generic_dev_info(s['_dev_info'])
   ) {
-    if (s.serial==undefined) {
+    if (s.serial===undefined) {
       s.serial=virtual_serial++;
       if (virtual_serial>10000) {
         virtual_serial=1;
@@ -139,7 +141,7 @@ export function is_shelly_status_dev_map(m:any):m is Record<string, shelly_statu
     return false;
   }
   for (const k in m) {
-    if(m.hasOwnProperty(k)) {
+    if(m.k) {
       if (!is_shelly_status_dev(m[k])) {
         console.log('is_shelly_status_dev_map fails:', m[k]);
         return false;
@@ -184,7 +186,7 @@ export interface shelly_statusonchange_t {
 export function is_shelly_statusonchange(m:any):m is shelly_statusonchange_t {
   return (
     m && typeof(m)==='object'
-		&& m.event=='Shelly:StatusOnChange'
+		&& m.event==='Shelly:StatusOnChange'
 		&& is_shelly_event_dev(m.device)
 		&& is_shelly_status_miniamal(m.status)
   );
@@ -200,7 +202,7 @@ export interface shelly_online_t {
 export function is_shelly_online(m:any):m is shelly_online_t {
   return (
     m && typeof(m)==='object'
-		&& m.event=='Shelly:Online'
+		&& m.event==='Shelly:Online'
 		&& is_shelly_event_dev(m.device)
 		&& typeof(m.online)==='number'
   );
@@ -218,7 +220,7 @@ export interface shelly_commandresponse_t {
 export function is_shelly_commandresponse(m:any):m is shelly_commandresponse_t {
   return (
     m && typeof(m)==='object'
-		&& m.event=='Shelly:CommandResponse'
+		&& m.event==='Shelly:CommandResponse'
 		&& typeof(m.deviceId)==='number'
 		&& typeof(m.trid)==='number'
 		&& typeof(m.user)==='number'
@@ -229,7 +231,7 @@ export function is_shelly_commandresponse(m:any):m is shelly_commandresponse_t {
 
 export function shelly_devid_hex(devid:number):string{
   let res=devid.toString(16).toLowerCase();
-  if (res.length==6 || res.length==12) {
+  if (res.length===6 || res.length===12) {
     return res;
   }
 
