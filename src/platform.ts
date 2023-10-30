@@ -57,12 +57,12 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
     this.log.info('Loading accessory from cache:', platformAccessory.displayName);
 
     // add the restored accessory to the accessories cache so we can track if it has already been registered
-    if (platformAccessory.context.device.code.split('-')[0] === 'SBDW') {
+    if (platformAccessory.context.code.split('-')[0] === 'SBDW') {
       // create a new accessory
       const accessory = new SBDWAccessory(this, {
-        uniqueId: platformAccessory.context.device.uniqueId,
-        code: platformAccessory.context.device.code,
-      });
+        uniqueId: platformAccessory.context.uniqueId,
+        code: platformAccessory.context.code,
+      }, platformAccessory);
       this.accessories.push(accessory);
     }
   }
