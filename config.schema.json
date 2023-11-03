@@ -22,15 +22,6 @@
         "type": "string",
         "required": true,
         "default": ""
-      },
-      "deviceIds": {
-        "title": "Shelly BLU Device IDs",
-        "type": "array",
-        "items": {
-          "title": "Device ID",
-          "type": "string"
-        },
-        "default": []
       }
     }
   }
