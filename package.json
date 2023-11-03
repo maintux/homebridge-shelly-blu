@@ -3,7 +3,7 @@
   "displayName": "Shelly Blu Plugin",
   "name": "homebridge-shelly-blu",
   "version": "1.0.0",
-  "description": "A short description about what your plugin does.",
+  "description": "Homebridge plugin for the Shelly BLU devices.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

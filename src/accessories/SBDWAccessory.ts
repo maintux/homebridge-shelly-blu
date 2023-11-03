@@ -1,8 +1,8 @@
 /* eslint-disable max-len */
-import { Service, Categories, PlatformAccessory } from 'homebridge';
+import { PlatformAccessory } from 'homebridge';
 
 import { ShellyBluPlatform } from '../platform';
-import { PositionState, StatusLowBattery, ContactSensorState } from 'hap-nodejs/dist/lib/definitions';
+import { StatusLowBattery, ContactSensorState } from 'hap-nodejs/dist/lib/definitions';
 import BaseAccessory from './BaseAccessory';
 
 /**
@@ -11,8 +11,6 @@ import BaseAccessory from './BaseAccessory';
  * Each accessory may expose multiple services of different service types.
  */
 export class SBDWAccessory extends BaseAccessory{
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private sensorType: any;
 
   constructor(
     private readonly platform: ShellyBluPlatform,
@@ -23,14 +21,10 @@ export class SBDWAccessory extends BaseAccessory{
 
     super();
 
-    // TODO: Get sensor type from config
-    // this.platform.config
-    this.sensorType = Categories.DOOR;
-
     if (!platformAccessory) {
 
       const uuid = this.platform.api.hap.uuid.generate(device.uniqueId);
-      this._platformAccessory = new this.platform.api.platformAccessory(device.code, uuid, this.sensorType);
+      this._platformAccessory = new this.platform.api.platformAccessory(device.code, uuid);
       this._platformAccessory.context.unique_id = device.uniqueId;
       this._platformAccessory.context.code = device.code;
 
