@@ -1,5 +1,4 @@
 {
-  "private": true,
   "displayName": "Shelly Blu Plugin",
   "name": "homebridge-shelly-blu",
   "version": "2.0.0",
