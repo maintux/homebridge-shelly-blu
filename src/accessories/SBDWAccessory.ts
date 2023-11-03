@@ -2,7 +2,6 @@
 import { PlatformAccessory } from 'homebridge';
 
 import { ShellyBluPlatform } from '../platform';
-import { StatusLowBattery, ContactSensorState } from 'hap-nodejs/dist/lib/definitions';
 import BaseAccessory from './BaseAccessory';
 
 /**
@@ -46,14 +45,15 @@ export class SBDWAccessory extends BaseAccessory{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updateStatus(device: any) {
     this.platform.log.debug(`Update device ${device.uniqueId} status`);
+    const characteristic = this.platform.api.hap.Characteristic;
 
     const _device = {
       uniqueId: device.uniqueId,
       code: device.code,
-      contactSensorState: device.payload['window:0'].open ? ContactSensorState.CONTACT_NOT_DETECTED : ContactSensorState.CONTACT_DETECTED,
+      contactSensorState: device.payload['window:0'].open ? characteristic.ContactSensorState.CONTACT_NOT_DETECTED : characteristic.ContactSensorState.CONTACT_DETECTED,
       illuminance: device.payload['illuminance:0'].lux,
       // eslint-disable-next-line max-len
-      statusLowBattery: device.payload['devicepower:0'].battery.percent < 10 ? StatusLowBattery.BATTERY_LEVEL_LOW : StatusLowBattery.BATTERY_LEVEL_NORMAL,
+      statusLowBattery: device.payload['devicepower:0'].battery.percent < 10 ? characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
     };
     this.platform.log.debug('%j', _device);
 
