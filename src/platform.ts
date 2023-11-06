@@ -24,7 +24,7 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
   // this is used to track restored cached accessories
   public readonly accessories: BaseAccessory[] = [];
 
-  private _shellyApi: ShellyCloudApi;
+  private _shellyApi: ShellyCloudApi | undefined;
 
   private _wsClient;
 
@@ -35,18 +35,23 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
   ) {
     this.log.debug('Finished initializing platform:', this.config.name);
 
-    this._shellyApi = new ShellyCloudApi(log, config, api);
-    this._wsClient = new WebSocketClient();
+    if (this.config.email && this.config.password) {
+      this._shellyApi = new ShellyCloudApi(log, config, api);
+      this._wsClient = new WebSocketClient();
 
-    this.api.on('didFinishLaunching', () => {
-      log.debug('Executed didFinishLaunching callback');
+      this.api.on('didFinishLaunching', () => {
+        log.debug('Executed didFinishLaunching callback');
 
-      this.discoverDevices().then(async (devices: Array<any>) => {
-        this.registerDevices(devices);
-        await this.handleDevicesStateChanges(devices);
+        this.discoverDevices().then(async (devices: Array<any>) => {
+          this.registerDevices(devices);
+          await this.handleDevicesStateChanges(devices);
+        });
+
       });
+    } else {
+      log.info('Plugin not configured. Skip');
+    }
 
-    });
   }
 
   /**
@@ -74,6 +79,9 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
     //   this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [a.platformAccessory]);
     // }
 
+    if (!this._shellyApi) {
+      return [];
+    }
     const payload = await this._shellyApi.call('/device/all_status');
     const devices: Array<any> = [];
     if (is_shelly_generic_response(payload) && payload.isok === true) {
@@ -92,7 +100,7 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
   }
 
   async handleDevicesStateChanges(devices) {
-    if (devices.length > 0) {
+    if (this._shellyApi && devices.length > 0) {
       const wsClientEndpoint = await this._shellyApi.getWSEndpoint();
       this.log.debug(wsClientEndpoint);
       this._wsClient.on('connectFailed', (error) => {
