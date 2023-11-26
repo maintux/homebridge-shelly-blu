@@ -62,7 +62,16 @@ export default class ShellyCloudApi {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve, reject) => {
 
-      await this._getAuthCode();
+      try {
+        await this._getAuthCode();
+      } catch (err) {
+        if (!(err instanceof Error)) {
+          // eslint-disable-next-line no-ex-assign
+          err = new Error(String(err));
+        }
+        return reject(err);
+      }
+
       const configStorage = new ConfigStorage(this._log, this._api, this._authCode as string);
 
       if (!this._params) {

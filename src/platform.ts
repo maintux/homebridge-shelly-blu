@@ -79,21 +79,22 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
     //   this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [a.platformAccessory]);
     // }
 
-    if (!this._shellyApi) {
-      return [];
-    }
-    const payload = await this._shellyApi.call('/device/all_status');
     const devices: Array<any> = [];
-    if (is_shelly_generic_response(payload) && payload.isok === true) {
-      for(const deviceId in (payload.data as any).devices_status) {
-        if((payload.data as any).devices_status[deviceId]._dev_info?.gen === 'GBLE') {
-          devices.push({
-            uniqueId: deviceId,
-            code: (payload.data as any).devices_status[deviceId]._dev_info.code,
-            payload: (payload.data as any).devices_status[deviceId],
-          });
+    if (this._shellyApi) {
+      try {
+        const payload = await this._shellyApi.call('/device/all_status');
+        if (is_shelly_generic_response(payload) && payload.isok === true) {
+          for(const deviceId in (payload.data as any).devices_status) {
+            if((payload.data as any).devices_status[deviceId]._dev_info?.gen === 'GBLE') {
+              devices.push({
+                uniqueId: deviceId,
+                code: (payload.data as any).devices_status[deviceId]._dev_info.code,
+                payload: (payload.data as any).devices_status[deviceId],
+              });
+            }
+          }
         }
-      }
+      } catch { /* empty */ }
     }
 
     return devices;
@@ -104,19 +105,20 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
       const wsClientEndpoint = await this._shellyApi.getWSEndpoint();
       this.log.debug(wsClientEndpoint);
       this._wsClient.on('connectFailed', (error) => {
-        this.log.debug('Connect Error: ' + error.toString());
+        this.log.error('Connect Error: ' + error.toString());
         this.handleDevicesStateChanges(devices);
       });
 
       this._wsClient.on('connect', (connection) => {
-        this.log.debug('Connection established!');
+        this.log.info('Connection established!');
 
         connection.on('error', (error) => {
-          this.log.debug('Connection error: ' + error.toString());
+          this.log.error('Connection error: ' + error.toString());
+          this.handleDevicesStateChanges(devices);
         });
 
         connection.on('close', () => {
-          this.log.debug('Connection closed!');
+          this.log.info('Connection closed!');
         });
 
         connection.on('message', (message) => {
@@ -155,6 +157,7 @@ export class ShellyBluPlatform implements DynamicPlatformPlugin {
       // see if an accessory with the same uuid has already been registered and restored from
       // the cached devices we stored in the `configureAccessory` method above
       const existingAccessory = this.accessories.find(accessory => accessory.platformAccessory.UUID === uuid);
+      this.log.debug('%j', device);
 
       if (device.code.split('-')[0] === 'SBDW') {
 
