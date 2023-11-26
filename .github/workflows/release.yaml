@@ -13,6 +13,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Extract tag name
+        id: tag
+        uses: actions/github-script@0.2.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            return context.payload.ref.replace(/\/refs\/tags\//, '');
       - name: Setup node
         uses: actions/setup-node@v1
         with:
@@ -23,11 +30,11 @@ jobs:
         run: npm run build
       - name: Create Bundle
         run: |
-          tar -C $(pwd)/dist --owner=0 --group=0 --format=posix -czvf homebridge-shelly-blu-${{ github.ref }}.tar.gz .
-          shasum -a 256 homebridge-shelly-blu-${{ github.ref }}.tar.gz > SHASUMS256.txt
+          tar -C $(pwd)/dist --owner=0 --group=0 --format=posix -czvf homebridge-shelly-blu-${{ steps.tag.outputs.result }}.tar.gz .
+          shasum -a 256 homebridge-shelly-blu-${{ steps.tag.outputs.result }}.tar.gz > SHASUMS256.txt
       - name: Attach Bundle
         uses: AButler/upload-release-assets@v2.0
         with:
-          files: 'homebridge-shelly-blu-${{ github.ref }}.tar.gz;SHASUMS256.txt'
+          files: 'homebridge-shelly-blu-${{ steps.tag.outputs.result }}.tar.gz;SHASUMS256.txt'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          release-tag: ${{ github.ref }}
+          release-tag: ${{ steps.tag.outputs.result }}
