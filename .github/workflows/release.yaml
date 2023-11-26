@@ -1,0 +1,31 @@
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+name: Create Release
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20.x
+      - name: Build the project
+        run: npm run build
+      - name: Create Bundle
+        run: |
+          tar -C $(pwd)/dist --owner=0 --group=0 --format=posix -czvf homebridge-shelly-blu-${{ github.event.release.tag_name }}.tar.gz .
+          shasum -a 256 homebridge-shelly-blu-${{ github.event.release.tag_name }}.tar.gz > SHASUMS256.txt
+      - name: Attach Bundle
+        uses: AButler/upload-release-assets@v2.0
+        with:
+          files: 'homebridge-shelly-blu-${{ github.event.release.tag_name }}.tar.gz;SHASUMS256.txt'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag: ${{ github.event.release.tag_name }}
